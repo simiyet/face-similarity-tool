@@ -1,5 +1,7 @@
 # Face Similarity Comparison Tool 🧑‍🤝‍🧑🔍
 
+https://face-similarity-tool.streamlit.app/
+
 This project is a face comparison tool designed to analyze the similarity between faces detected in two uploaded images.
 It uses the `face_recognition` library for facial detection and encoding, and `Streamlit` for an interactive web interface.
 

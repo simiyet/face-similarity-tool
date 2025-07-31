@@ -4,6 +4,7 @@ from deepface import DeepFace
 import numpy as np
 import tempfile
 import os
+import matplotlib.pyplot as plt
 
 def verify_faces(img1, img2):
     try:
@@ -16,6 +17,22 @@ def save_uploaded_file(uploaded_file):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
         tmp_file.write(uploaded_file.getbuffer())
         return tmp_file.name
+
+def classify_similarity(distance):
+    if distance < 0.3:
+        return "🟢 Same Person"
+    elif distance < 0.5:
+        return "🟡 Possibly Similar"
+    else:
+        return "🔴 Different Person"
+
+def show_similarity_bar(similarity):
+    fig, ax = plt.subplots(figsize=(6, 1))
+    ax.barh([0], [similarity], color='skyblue')
+    ax.set_xlim(0, 1)
+    ax.set_yticks([])
+    ax.set_title(f"Similarity Score: {similarity:.2f}")
+    st.pyplot(fig)
 
 def main():
     st.set_page_config(page_title="Face Similarity Tool", layout="centered")
@@ -44,13 +61,13 @@ def main():
         else:
             distance = result.get("distance", 1.0)
             verified = result.get("verified", False)
+            similarity = 1 - distance
 
             st.markdown("---")
             st.subheader("Result")
-            if verified:
-                st.success(f"✅ The faces match. Similarity Score: {1 - distance:.2f}")
-            else:
-                st.warning(f"❌ The faces do not match. Similarity Score: {1 - distance:.2f}")
+            st.markdown(f"### {classify_similarity(distance)}")
+            show_similarity_bar(similarity)
+
     elif uploaded_files:
         st.warning("Please upload exactly 2 images.")
 

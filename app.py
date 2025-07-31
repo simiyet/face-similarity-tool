@@ -1,75 +1,76 @@
 import streamlit as st
-from PIL import Image
-from deepface import DeepFace
 import numpy as np
-import tempfile
-import os
+from PIL import Image
+import face_recognition
 import matplotlib.pyplot as plt
+import io
 
-def verify_faces(img1, img2):
-    try:
-        result = DeepFace.verify(img1_path=img1, img2_path=img2, enforce_detection=True)
-        return result
-    except Exception as e:
-        return {"error": str(e)}
+st.set_page_config(layout="wide")
+st.title("🧑‍🤝‍🧑 Face Similarity Comparison Tool")
 
-def save_uploaded_file(uploaded_file):
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp_file:
-        tmp_file.write(uploaded_file.getbuffer())
-        return tmp_file.name
-
-def classify_similarity(distance):
-    if distance < 0.3:
-        return "🟢 Same Person"
-    elif distance < 0.5:
-        return "🟡 Possibly Similar"
+def load_and_detect_face(image_file, label):
+    image = face_recognition.load_image_file(image_file)
+    face_locations = face_recognition.face_locations(image)
+    if len(face_locations) == 0:
+        return None, f"No face detected in {label}."
+    elif len(face_locations) > 1:
+        return None, f"More than one face detected in {label}."
     else:
-        return "🔴 Different Person"
+        encoding = face_recognition.face_encodings(image, known_face_locations=face_locations)[0]
+        return (image, face_locations[0], encoding), None
 
-def show_similarity_bar(similarity):
-    fig, ax = plt.subplots(figsize=(6, 1))
-    ax.barh([0], [similarity], color='skyblue')
-    ax.set_xlim(0, 1)
-    ax.set_yticks([])
-    ax.set_title(f"Similarity Score: {similarity:.2f}")
-    st.pyplot(fig)
+def draw_face_box(image_np, face_location):
+    top, right, bottom, left = face_location
+    fig, ax = plt.subplots()
+    ax.imshow(image_np)
+    rect = plt.Rectangle((left, top), right - left, bottom - top,
+                         fill=False, color="lime", linewidth=2)
+    ax.add_patch(rect)
+    ax.axis('off')
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png")
+    buf.seek(0)
+    plt.close(fig)
+    return buf
 
-def main():
-    st.set_page_config(page_title="Face Similarity Tool", layout="centered")
-    st.title("🔍 Face Similarity Comparison")
+uploaded_files = st.file_uploader("Upload exactly 2 images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
 
-    uploaded_files = st.file_uploader("Upload exactly 2 images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+if uploaded_files and len(uploaded_files) == 2:
+    col1, col2 = st.columns(2)
+    with col1:
+        st.image(uploaded_files[0], caption="Image 1", use_container_width=True)
+    with col2:
+        st.image(uploaded_files[1], caption="Image 2", use_container_width=True)
 
-    if uploaded_files and len(uploaded_files) == 2:
-        file_paths = []
+    data1, err1 = load_and_detect_face(uploaded_files[0], "Image 1")
+    data2, err2 = load_and_detect_face(uploaded_files[1], "Image 2")
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(uploaded_files[0], caption="Image 1", use_container_width=True)
-        with col2:
-            st.image(uploaded_files[1], caption="Image 2", use_container_width=True)
+    if err1:
+        st.error(err1)
+    elif err2:
+        st.error(err2)
+    else:
+        img1_np, loc1, enc1 = data1
+        img2_np, loc2, enc2 = data2
 
-        for uploaded_file in uploaded_files:
-            file_path = save_uploaded_file(uploaded_file)
-            file_paths.append(file_path)
+        distance = np.linalg.norm(enc1 - enc2)
+        st.markdown(f"### Distance: `{distance:.4f}`")
 
-        with st.spinner('Analyzing...'):
-            result = verify_faces(file_paths[0], file_paths[1])
-
-        if "error" in result:
-            st.error(f"Face verification failed: {result['error']}")
+        if distance < 0.4:
+            result = "✅ Same Person"
+        elif distance < 0.6:
+            result = "🟡 Likely Same Person"
         else:
-            distance = result.get("distance", 1.0)
-            verified = result.get("verified", False)
-            similarity = 1 - distance
+            result = "❌ Different People"
 
-            st.markdown("---")
-            st.subheader("Result")
-            st.markdown(f"### {classify_similarity(distance)}")
-            show_similarity_bar(similarity)
+        st.subheader(f"Result: {result}")
 
-    elif uploaded_files:
-        st.warning("Please upload exactly 2 images.")
+        st.markdown("#### Face Detection Visualization")
+        col3, col4 = st.columns(2)
+        with col3:
+            st.image(draw_face_box(img1_np, loc1), caption="Image 1 Detected Face", use_container_width=True)
+        with col4:
+            st.image(draw_face_box(img2_np, loc2), caption="Image 2 Detected Face", use_container_width=True)
 
-if __name__ == '__main__':
-    main()
+else:
+    st.info("Please upload exactly two image files.")

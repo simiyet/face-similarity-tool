@@ -4,5 +4,5 @@ pillow
 matplotlib
 deepface==0.0.79
 tensorflow==2.20.0rc0
-opencv-python
+opencv-python-headless
 PyOpenGL

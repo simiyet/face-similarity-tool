@@ -2,46 +2,48 @@ import streamlit as st
 from PIL import Image
 from deepface import DeepFace
 import numpy as np
+import tempfile
+import os
 
 def verify_faces(img1, img2):
-    result = DeepFace.verify(img1_path=np.array(img1), img2_path=np.array(img2), enforce_detection=True)
-    return result
+    result = DeepFace.verify(img1_path=img1, img2_path=img2, enforce_detection=True)
+    return result["verified"], result["distance"]
 
-st.set_page_config(page_title="Face Similarity Tool", layout="centered")
-st.title("👤 Face Similarity Comparison Tool")
+def save_uploaded_file(uploaded_file):
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_file:
+        tmp_file.write(uploaded_file.read())
+        return tmp_file.name
 
-st.markdown("Upload **exactly two** images. Each image must contain **one and only one** face.")
+def main():
+    st.title("Face Similarity Checker")
+    st.write("Upload two images. Each must contain exactly one face.")
 
-uploaded_files = st.file_uploader("Upload 2 Images", type=["jpg", "jpeg", "png"], accept_multiple_files=True)
+    col1, col2 = st.columns(2)
 
-if uploaded_files:
-    if len(uploaded_files) != 2:
-        st.error("⚠️ Please upload exactly 2 images.")
-    else:
+    with col1:
+        uploaded_file1 = st.file_uploader("Upload First Image", type=["jpg", "jpeg", "png"])
+    with col2:
+        uploaded_file2 = st.file_uploader("Upload Second Image", type=["jpg", "jpeg", "png"])
+
+    if uploaded_file1 and uploaded_file2:
+        path1 = save_uploaded_file(uploaded_file1)
+        path2 = save_uploaded_file(uploaded_file2)
+
+        st.image(Image.open(path1), caption="Image 1", use_column_width=True)
+        st.image(Image.open(path2), caption="Image 2", use_column_width=True)
+
         try:
-            img1 = Image.open(uploaded_files[0]).convert("RGB")
-            img2 = Image.open(uploaded_files[1]).convert("RGB")
-
-            col1, col2 = st.columns(2)
-            with col1:
-                st.image(img1, caption="Image 1", use_column_width=True)
-            with col2:
-                st.image(img2, caption="Image 2", use_column_width=True)
-
-            st.subheader("🔍 Verifying Similarity...")
-            result = verify_faces(img1, img2)
-
-            distance = result.get("distance", 1.0)
-            if result.get("verified"):
-                st.success(f"✅ Same Person — Distance: {distance:.4f}")
+            verified, distance = verify_faces(path1, path2)
+            if verified:
+                st.success(f"Faces Match! Distance: {distance:.4f}")
             else:
-                st.warning(f"❌ Different Person — Distance: {distance:.4f}")
+                st.error(f"Faces Do NOT Match. Distance: {distance:.4f}")
+        except Exception as e:
+            st.error(f"Error: {str(e)}")
 
-        except ValueError as ve:
-            error_str = str(ve).lower()
-            if "no face" in error_str:
-                st.error("🚫 One or both images do not contain a detectable face.")
-            elif "more than one" in error_str:
-                st.error("🚫 Each image must contain exactly one face. Multiple faces were detected.")
-            else:
-                st.error(f"❗ Unexpected error: {ve}")
+        # Clean up
+        os.remove(path1)
+        os.remove(path2)
+
+if __name__ == "__main__":
+    main()

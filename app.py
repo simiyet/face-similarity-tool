@@ -32,7 +32,7 @@ def show_images_side_by_side(img1, img2):
         st.image(img2, caption="Image 2", use_container_width=True)
 
 def verify_faces(img1, img2):
-    result = DeepFace.verify(img1_path=img1, img2_path=img2, enforce_detection=True, detector_backend="retinaface")
+    result = DeepFace.verify(img1_path=img1, img2_path=img2, enforce_detection=False, detector_backend="retinaface")
     return result
 
 if uploaded_files and len(uploaded_files) == 2:

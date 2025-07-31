@@ -4,3 +4,4 @@ pillow
 matplotlib
 deepface==0.0.79
 opencv-python-headless
+tensorflow==2.12.0
